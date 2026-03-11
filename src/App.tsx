@@ -31,84 +31,156 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HORSES, CASINO_GAMES, SLOTS, FEATURED_GAMES } from './constants';
 import { Horse, CasinoGame, SlotGame, FeaturedGame } from './types';
 import { dbService } from './services/dbService';
+import { supabase } from './lib/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // --- Components ---
 
-const LoginPage = () => (
-  <div className="max-w-md mx-auto w-full px-6 py-12 flex flex-col items-center">
-    <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8">
-      <Lock className="size-8" />
-    </div>
-    <h2 className="text-3xl font-black italic uppercase tracking-tight mb-2">Bem-vindo de volta</h2>
-    <p className="text-neutral-500 text-center mb-8">Introduza os seus dados para aceder à sua conta Bet4Ever.</p>
-    
-    <form className="w-full flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 ml-1">E-mail</label>
-        <div className="relative">
-          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-          <input 
-            type="email" 
-            placeholder="exemplo@email.com"
-            className="w-full bg-white border border-neutral-200 rounded-xl py-3.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-          />
-        </div>
+const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: (user: SupabaseUser) => void }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (isLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (data.user) onLoginSuccess(data.user);
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        if (data.user) {
+          alert('Registo efetuado com sucesso! Verifique o seu e-mail para confirmar a conta.');
+          setIsLogin(true);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Ocorreu um erro inesperado.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto w-full px-6 py-12 flex flex-col items-center">
+      <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8">
+        <Lock className="size-8" />
       </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 ml-1">Palavra-passe</label>
-        <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-          <input 
-            type="password" 
-            placeholder="••••••••"
-            className="w-full bg-white border border-neutral-200 rounded-xl py-3.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="size-4 rounded border-neutral-300 text-primary focus:ring-primary" />
-          <span className="text-sm text-neutral-600">Lembrar-me</span>
-        </label>
-        <button className="text-sm text-primary font-bold hover:underline">Esqueceu-se?</button>
-      </div>
-
-      <button className="w-full bg-primary hover:bg-red-600 text-white font-black py-4 rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] mt-4">
-        ENTRAR NA CONTA
-      </button>
-
-      <div className="relative flex items-center justify-center my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-neutral-200"></div>
-        </div>
-        <span className="relative bg-background-light px-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Ou continuar com</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <button className="flex items-center justify-center gap-2 bg-white border border-neutral-200 py-3 rounded-xl hover:bg-neutral-50 transition-colors font-bold text-sm">
-          <img src="https://www.google.com/favicon.ico" className="size-4" alt="Google" />
-          Google
-        </button>
-        <button className="flex items-center justify-center gap-2 bg-white border border-neutral-200 py-3 rounded-xl hover:bg-neutral-50 transition-colors font-bold text-sm">
-          <img src="https://www.facebook.com/favicon.ico" className="size-4" alt="Facebook" />
-          Facebook
-        </button>
-      </div>
-
-      <p className="text-sm text-center text-neutral-500 mt-6">
-        Ainda não tem conta? <button className="text-primary font-bold hover:underline">Registe-se aqui</button>
+      <h2 className="text-3xl font-black italic uppercase tracking-tight mb-2">
+        {isLogin ? 'Bem-vindo de volta' : 'Criar nova conta'}
+      </h2>
+      <p className="text-neutral-500 text-center mb-8">
+        {isLogin 
+          ? 'Introduza os seus dados para aceder à sua conta Bet4Ever.' 
+          : 'Junte-se à Bet4Ever e comece a apostar hoje mesmo.'}
       </p>
-    </form>
-  </div>
-);
+      
+      {error && (
+        <div className="w-full bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium mb-6">
+          {error}
+        </div>
+      )}
 
-const Header = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => (
+      <form className="w-full flex flex-col gap-4" onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 ml-1">E-mail</label>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="exemplo@email.com"
+              className="w-full bg-white border border-neutral-200 rounded-xl py-3.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 ml-1">Palavra-passe</label>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-white border border-neutral-200 rounded-xl py-3.5 pl-11 pr-4 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+            />
+          </div>
+        </div>
+
+        {isLogin && (
+          <div className="flex items-center justify-between mt-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="size-4 rounded border-neutral-300 text-primary focus:ring-primary" />
+              <span className="text-sm text-neutral-600">Lembrar-me</span>
+            </label>
+            <button type="button" className="text-sm text-primary font-bold hover:underline">Esqueceu-se?</button>
+          </div>
+        )}
+
+        <button 
+          type="submit"
+          disabled={loading}
+          className="w-full bg-primary hover:bg-red-600 disabled:bg-neutral-300 text-white font-black py-4 rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] mt-4"
+        >
+          {loading ? 'A PROCESSAR...' : (isLogin ? 'ENTRAR NA CONTA' : 'CRIAR CONTA')}
+        </button>
+
+        <div className="relative flex items-center justify-center my-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-neutral-200"></div>
+          </div>
+          <span className="relative bg-background-light px-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Ou continuar com</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <button type="button" className="flex items-center justify-center gap-2 bg-white border border-neutral-200 py-3 rounded-xl hover:bg-neutral-50 transition-colors font-bold text-sm">
+            <img src="https://www.google.com/favicon.ico" className="size-4" alt="Google" />
+            Google
+          </button>
+          <button type="button" className="flex items-center justify-center gap-2 bg-white border border-neutral-200 py-3 rounded-xl hover:bg-neutral-50 transition-colors font-bold text-sm">
+            <img src="https://www.facebook.com/favicon.ico" className="size-4" alt="Facebook" />
+            Facebook
+          </button>
+        </div>
+
+        <p className="text-sm text-center text-neutral-500 mt-6">
+          {isLogin ? 'Ainda não tem conta?' : 'Já tem uma conta?'} {' '}
+          <button 
+            type="button"
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-primary font-bold hover:underline"
+          >
+            {isLogin ? 'Registe-se aqui' : 'Inicie sessão'}
+          </button>
+        </p>
+      </form>
+    </div>
+  );
+};
+
+const Header = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (t: string) => void, user: SupabaseUser | null }) => (
   <header className="sticky top-0 z-50 w-full bg-primary text-white shadow-md">
     <div className="max-w-[1440px] mx-auto px-4 h-16 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('sports')}>
           <div className="size-8 bg-white rounded-lg flex items-center justify-center text-primary">
             <BarChart3 className="size-5 font-bold" />
           </div>
@@ -149,19 +221,34 @@ const Header = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: 
             type="text"
           />
         </div>
-        <button className="bg-white text-primary px-4 py-2 rounded-lg font-bold text-sm hover:bg-neutral-100 transition-colors">
-          DEPOSITAR
-        </button>
-        <div className="flex items-center gap-2 bg-black/10 p-1 rounded-full pl-3">
-          <span className="text-xs font-bold">€124.50</span>
-          <div className="size-8 rounded-full bg-slate-300 overflow-hidden border-2 border-white/20">
-            <img 
-              alt="Profile" 
-              src="https://picsum.photos/seed/user/100/100" 
-              referrerPolicy="no-referrer"
-            />
+        
+        {user ? (
+          <div className="flex items-center gap-3">
+            <button className="bg-white text-primary px-4 py-2 rounded-lg font-bold text-sm hover:bg-neutral-100 transition-colors">
+              DEPOSITAR
+            </button>
+            <div 
+              onClick={() => setActiveTab('login')}
+              className="flex items-center gap-2 bg-black/10 p-1 rounded-full pl-3 cursor-pointer hover:bg-black/20 transition-colors"
+            >
+              <span className="text-xs font-bold">€0.00</span>
+              <div className="size-8 rounded-full bg-slate-300 overflow-hidden border-2 border-white/20">
+                <img 
+                  alt="Profile" 
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} 
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <button 
+            onClick={() => setActiveTab('login')}
+            className="bg-white text-primary px-6 py-2 rounded-lg font-bold text-sm hover:bg-neutral-100 transition-colors shadow-lg shadow-black/10"
+          >
+            ENTRAR
+          </button>
+        )}
       </div>
     </div>
   </header>
@@ -231,11 +318,11 @@ const HorseCard: React.FC<{ horse: Horse }> = ({ horse }) => (
         <div className="flex items-center justify-end gap-3">
           <button className="h-12 w-24 bg-accent-yellow hover:scale-105 transition-transform rounded-lg flex flex-col items-center justify-center text-neutral-900 shadow-md">
             <span className="text-[10px] font-bold opacity-60">GANHADOR</span>
-            <span className="text-lg font-black leading-none">{horse.oddsGanhador.toFixed(2)}</span>
+            <span className="text-lg font-black leading-none">{(horse.oddsGanhador || 0).toFixed(2)}</span>
           </button>
           <button className="h-12 w-24 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-lg flex flex-col items-center justify-center text-neutral-900">
             <span className="text-[10px] font-bold opacity-60 uppercase">Placé</span>
-            <span className="text-lg font-black leading-none">{horse.oddsPlace.toFixed(2)}</span>
+            <span className="text-lg font-black leading-none">{(horse.oddsPlace || 0).toFixed(2)}</span>
           </button>
         </div>
       </div>
@@ -383,15 +470,15 @@ const FeaturedGameCard: React.FC<{ game: FeaturedGame }> = ({ game }) => (
       <div className="grid grid-cols-3 gap-2 mb-6">
         <button className="bg-neutral-50 hover:bg-neutral-100 p-3 rounded-xl flex flex-col items-center transition-colors">
           <span className="text-[10px] font-bold text-neutral-400 mb-1">1</span>
-          <span className="font-black text-lg">{game.oddsHome.toFixed(2)}</span>
+          <span className="font-black text-lg">{(game.oddsHome || 0).toFixed(2)}</span>
         </button>
         <button className="bg-neutral-50 hover:bg-neutral-100 p-3 rounded-xl flex flex-col items-center transition-colors">
           <span className="text-[10px] font-bold text-neutral-400 mb-1">X</span>
-          <span className="font-black text-lg">{game.oddsDraw > 0 ? game.oddsDraw.toFixed(2) : '-'}</span>
+          <span className="font-black text-lg">{game.oddsDraw > 0 ? (game.oddsDraw || 0).toFixed(2) : '-'}</span>
         </button>
         <button className="bg-neutral-50 hover:bg-neutral-100 p-3 rounded-xl flex flex-col items-center transition-colors">
           <span className="text-[10px] font-bold text-neutral-400 mb-1">2</span>
-          <span className="font-black text-lg">{game.oddsAway.toFixed(2)}</span>
+          <span className="font-black text-lg">{(game.oddsAway || 0).toFixed(2)}</span>
         </button>
       </div>
 
@@ -408,7 +495,7 @@ const FeaturedGameCard: React.FC<{ game: FeaturedGame }> = ({ game }) => (
         <h5 className="font-bold text-sm mb-1">{game.tipTitle}</h5>
         <p className="text-xs text-neutral-500 mb-3 leading-relaxed">{game.tipDescription}</p>
         <button className="w-full bg-primary text-white font-black py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-red-600 transition-colors shadow-lg shadow-primary/20">
-          APOSTAR AGORA <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">{game.tipOdds.toFixed(2)}</span>
+          APOSTAR AGORA <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">{(game.tipOdds || 0).toFixed(2)}</span>
         </button>
       </div>
     </div>
@@ -676,8 +763,19 @@ export default function App() {
   const [horses, setHorses] = useState<Horse[]>(HORSES);
   const [casinoGames, setCasinoGames] = useState<CasinoGame[]>(CASINO_GAMES);
   const [featuredGames, setFeaturedGames] = useState<FeaturedGame[]>(FEATURED_GAMES);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   React.useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
     const fetchData = async () => {
       try {
         const [horsesData, casinoData, featuredData] = await Promise.all([
@@ -695,11 +793,52 @@ export default function App() {
     };
 
     fetchData();
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setActiveTab('sports');
+  };
+
+  const LoginPageWrapper = () => {
+    if (user) {
+      return (
+        <div className="max-w-md mx-auto w-full px-6 py-12 flex flex-col items-center">
+          <div className="size-20 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6">
+            <User className="size-10" />
+          </div>
+          <h2 className="text-2xl font-black italic uppercase tracking-tight mb-1">{user.email?.split('@')[0]}</h2>
+          <p className="text-neutral-500 mb-8">{user.email}</p>
+          
+          <div className="w-full bg-white border border-neutral-100 rounded-2xl p-6 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-neutral-50">
+              <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Saldo Total</span>
+              <span className="text-xl font-black italic">€0.00</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button className="bg-primary text-white font-bold py-3 rounded-xl text-sm">DEPOSITAR</button>
+              <button className="bg-neutral-100 text-neutral-900 font-bold py-3 rounded-xl text-sm">LEVANTAR</button>
+            </div>
+          </div>
+
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 text-red-600 font-bold py-4 rounded-xl border border-red-100 hover:bg-red-50 transition-colors"
+          >
+            <Lock className="size-4" />
+            TERMINAR SESSÃO
+          </button>
+        </div>
+      );
+    }
+    return <LoginPage onLoginSuccess={(u) => { setUser(u); setActiveTab('sports'); }} />;
+  };
 
   return (
     <div className="min-h-screen flex flex-col pb-16 lg:pb-0">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
       
       <AnimatePresence mode="wait">
         <motion.div
@@ -717,7 +856,7 @@ export default function App() {
           ) : activeTab === 'casino' ? (
             <CasinoPage casinoGames={casinoGames} />
           ) : (
-            <LoginPage />
+            <LoginPageWrapper />
           )}
         </motion.div>
       </AnimatePresence>
